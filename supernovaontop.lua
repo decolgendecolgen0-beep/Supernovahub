@@ -13,7 +13,7 @@ pcall(function()
     end
 end)
 
--- 1. Buat ScreenGui dengan aman
+-- 1. Buat ScreenGui Utama
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "SimpleNameChanger"
 screenGui.ResetOnSpawn = false
@@ -25,7 +25,7 @@ if not success then
     screenGui.Parent = player:WaitForChild("PlayerGui")
 end
 
--- 2. Frame Utama (Ringan & Clean)
+-- 2. Frame Utama
 local frame = Instance.new("Frame")
 frame.Size = UDim2.new(0, 240, 0, 160)
 frame.Position = UDim2.new(0.5, -120, 0.4, -80)
@@ -42,10 +42,10 @@ corner.Parent = frame
 local title = Instance.new("TextLabel")
 title.Size = UDim2.new(1, 0, 0, 30)
 title.BackgroundTransparency = 1
-title.Text = "SUPERNOVA ON TOP (PERMANENT)"
+title.Text = "SUPERNOVA ON TOP (LITE)"
 title.TextColor3 = Color3.fromRGB(255, 255, 255)
 title.Font = Enum.Font.GothamBold
-title.TextSize = 10
+title.TextSize = 11
 title.Parent = frame
 
 -- Input Box
@@ -94,40 +94,30 @@ closeBtn.MouseButton1Click:Connect(function()
     screenGui:Destroy()
 end)
 
--- 3. Logika Lock Permanen Anti-Reset saat Trade
+-- 3. Logika Ringan (Bebas Lag & Respon Instan)
 local newName = ""
 
-local function forceChangeText(obj)
-    if newName == "" then return end
-    if obj:IsA("TextLabel") and not obj:IsDescendantOf(screenGui) then
-        local t = obj.Text
-        -- Cek apakah teksnya mengandung nama asli kamu atau kentoes
-        if t == player.Name or t == player.DisplayName or string.find(string.lower(t), "kentoes") then
-            if t ~= newName then
-                pcall(function() obj.Text = newName end)
-            end
-        end
-    end
-end
-
-local function applyAll()
+local function quickFixNames()
     if newName == "" then return end
     
-    -- Humanoid DisplayName
+    -- Ubah Humanoid DisplayName
     if player.Character and player.Character:FindFirstChildOfClass("Humanoid") then
         pcall(function() player.Character.Humanoid.DisplayName = newName end)
     end
     
-    -- Workspace
-    for _, obj in ipairs(workspace:GetDescendants()) do
-        forceChangeText(obj)
-    end
+    local oldName = player.Name
+    local oldDisplay = player.DisplayName
     
-    -- PlayerGui (Trade, Inventory, dll)
+    -- Cek khusus PlayerGui (Menu Trade)
     local pGui = player:FindFirstChild("PlayerGui")
     if pGui then
         for _, obj in ipairs(pGui:GetDescendants()) do
-            forceChangeText(obj)
+            if obj:IsA("TextLabel") and not obj:IsDescendantOf(screenGui) then
+                local txt = obj.Text
+                if txt == oldName or txt == oldDisplay or string.find(string.lower(txt), "kentoes") then
+                    pcall(function() obj.Text = newName end)
+                end
+            end
         end
     end
 end
@@ -135,47 +125,17 @@ end
 button.MouseButton1Click:Connect(function()
     if textBox.Text ~= "" then
         newName = textBox.Text
-        button.Text = "TERKUNCI PERMANEN!"
-        applyAll()
+        button.Text = "BERHASIL!"
+        quickFixNames()
         task.wait(1)
         button.Text = "TERAPKAN NAMA"
     end
 end)
 
--- Pasang pengawas otomatis (Hook) untuk setiap TextLabel baru/yang di-refresh game
+-- Hanya aktif ketika ada perubahan elemen di PlayerGui (Sangat Ringan!)
 local playerGui = player:WaitForChild("PlayerGui")
-
-local function monitorObject(obj)
-    if obj:IsA("TextLabel") then
-        -- Jika teksnya berubah karena di-refresh game saat add item, langsung timpa seketika!
-        obj:GetPropertyChangedSignal("Text"):Connect(function()
-            if newName ~= "" and not obj:IsDescendantOf(screenGui) then
-                local t = obj.Text
-                if t == player.Name or t == player.DisplayName or string.find(string.lower(t), "kentoes") then
-                    if t ~= newName then
-                        pcall(function() obj.Text = newName end)
-                    end
-                end
-            end
-        end)
-    end
-end
-
--- Awasi semua GUI yang sudah ada maupun yang nanti muncul (termasuk menu trade)
-for _, obj in ipairs(playerGui:GetDescendants()) do
-    monitorObject(obj)
-end
-
-playerGui.DescendantAdded:Connect(function(obj)
-    monitorObject(obj)
-    task.defer(applyAll)
-end)
-
--- Pengecekan ekstra sangat ringan setiap 1 detik untuk pengaman mutlak
-task.spawn(function()
-    while task.wait(1) do
-        if newName ~= "" then
-            applyAll()
-        end
+playerGui.DescendantAdded:Connect(function(child)
+    if newName ~= "" and (child:IsA("TextLabel") or child:IsA("Frame") or child:IsA("ImageLabel")) then
+        task.defer(quickFixNames)
     end
 end)
