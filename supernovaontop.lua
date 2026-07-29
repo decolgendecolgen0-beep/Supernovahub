@@ -3,7 +3,7 @@ local Players = game:GetService("Players")
 local CoreGui = game:GetService("CoreGui")
 local player = Players.LocalPlayer
 
--- Bersihkan GUI lama jika ada
+-- Clean GUI Lama
 pcall(function()
     if CoreGui:FindFirstChild("SimpleNameChanger") then
         CoreGui.SimpleNameChanger:Destroy()
@@ -42,7 +42,7 @@ corner.Parent = frame
 local title = Instance.new("TextLabel")
 title.Size = UDim2.new(1, 0, 0, 30)
 title.BackgroundTransparency = 1
-title.Text = "SUPERNOVA ON TOP (LITE)"
+title.Text = "SUPERNOVA ON TOP (PERFECT)"
 title.TextColor3 = Color3.fromRGB(255, 255, 255)
 title.Font = Enum.Font.GothamBold
 title.TextSize = 11
@@ -94,48 +94,84 @@ closeBtn.MouseButton1Click:Connect(function()
     screenGui:Destroy()
 end)
 
--- 3. Logika Ringan (Bebas Lag & Respon Instan)
+-- 3. LOGIKA OPTIMAL & SUPER RINGAN
 local newName = ""
 
-local function quickFixNames()
-    if newName == "" then return end
+-- Fungsi untuk memeriksa & mengunci teks secara instant
+local function processLabel(label)
+    if not label:IsA("TextLabel") or label:IsDescendantOf(screenGui) then return end
     
-    -- Ubah Humanoid DisplayName
-    if player.Character and player.Character:FindFirstChildOfClass("Humanoid") then
-        pcall(function() player.Character.Humanoid.DisplayName = newName end)
-    end
+    local text = label.Text
+    local rawName = player.Name
+    local dispName = player.DisplayName
     
-    local oldName = player.Name
-    local oldDisplay = player.DisplayName
-    
-    -- Cek khusus PlayerGui (Menu Trade)
-    local pGui = player:FindFirstChild("PlayerGui")
-    if pGui then
-        for _, obj in ipairs(pGui:GetDescendants()) do
-            if obj:IsA("TextLabel") and not obj:IsDescendantOf(screenGui) then
-                local txt = obj.Text
-                if txt == oldName or txt == oldDisplay or string.find(string.lower(txt), "kentoes") then
-                    pcall(function() obj.Text = newName end)
+    -- Cek jika teks mengandung nama asli kamu
+    if text == rawName or text == dispName or string.find(string.lower(text), "kentoes") then
+        if text ~= newName then
+            pcall(function() label.Text = newName end)
+        end
+        
+        -- Kunci Teks agar TIDAK BERUBAH saat tambah item di trade
+        if not label:GetAttribute("NameLocked") then
+            label:SetAttribute("NameLocked", true)
+            label:GetPropertyChangedSignal("Text"):Connect(function()
+                if newName ~= "" and label.Text ~= newName then
+                    local currentText = label.Text
+                    if currentText == rawName or currentText == dispName or string.find(string.lower(currentText), "kentoes") then
+                        pcall(function() label.Text = newName end)
+                    end
                 end
-            end
+            end)
         end
     end
 end
 
+-- Scan ringan ke area tertentu
+local function updateAllNames()
+    if newName == "" then return end
+    
+    -- 1. Tampilan Atas Kepala (Workspace Character)
+    if player.Character then
+        local hum = player.Character:FindFirstChildOfClass("Humanoid")
+        if hum then pcall(function() hum.DisplayName = newName end) end
+        
+        for _, obj in ipairs(player.Character:GetDescendants()) do
+            processLabel(obj)
+        end
+    end
+    
+    -- 2. Tampilan UI Game & Trade (PlayerGui)
+    local pGui = player:FindFirstChild("PlayerGui")
+    if pGui then
+        for _, obj in ipairs(pGui:GetDescendants()) do
+            processLabel(obj)
+        end
+    end
+end
+
+-- Tombol Terapkan
 button.MouseButton1Click:Connect(function()
     if textBox.Text ~= "" then
         newName = textBox.Text
-        button.Text = "BERHASIL!"
-        quickFixNames()
+        button.Text = "NAMA TERKUNCI!"
+        updateAllNames()
         task.wait(1)
         button.Text = "TERAPKAN NAMA"
     end
 end)
 
--- Hanya aktif ketika ada perubahan elemen di PlayerGui (Sangat Ringan!)
+-- Pasang Event Listener Ringan untuk UI Baru (Menu Trade Muncul)
 local playerGui = player:WaitForChild("PlayerGui")
-playerGui.DescendantAdded:Connect(function(child)
-    if newName ~= "" and (child:IsA("TextLabel") or child:IsA("Frame") or child:IsA("ImageLabel")) then
-        task.defer(quickFixNames)
+playerGui.DescendantAdded:Connect(function(descendant)
+    if newName ~= "" then
+        task.defer(function()
+            processLabel(descendant)
+        end)
     end
+end)
+
+-- Pantau saat Karakter Respawn
+player.CharacterAdded:Connect(function(char)
+    task.wait(1)
+    updateAllNames()
 end)
