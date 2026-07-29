@@ -18,14 +18,14 @@ local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "SimpleNameChanger"
 screenGui.ResetOnSpawn = false
 
-local success, err = pcall(function()
+local success = pcall(function()
     screenGui.Parent = CoreGui
 end)
 if not success then
     screenGui.Parent = player:WaitForChild("PlayerGui")
 end
 
--- 2. Frame Utama
+-- 2. Frame Utama (Ringan & Clean)
 local frame = Instance.new("Frame")
 frame.Size = UDim2.new(0, 240, 0, 160)
 frame.Position = UDim2.new(0.5, -120, 0.4, -80)
@@ -42,10 +42,10 @@ corner.Parent = frame
 local title = Instance.new("TextLabel")
 title.Size = UDim2.new(1, 0, 0, 30)
 title.BackgroundTransparency = 1
-title.Text = "UBAH NAMA LOKAL (+ TRADE)"
+title.Text = "SUPERNOVA ON TOP (ANTI-LAG)"
 title.TextColor3 = Color3.fromRGB(255, 255, 255)
 title.Font = Enum.Font.GothamBold
-title.TextSize = 12
+title.TextSize = 11
 title.Parent = frame
 
 -- Input Box
@@ -53,7 +53,7 @@ local textBox = Instance.new("TextBox")
 textBox.Size = UDim2.new(0.85, 0, 0, 35)
 textBox.Position = UDim2.new(0.075, 0, 0, 40)
 textBox.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
-textBox.PlaceholderText = "Ketik nama baru di sini..."
+textBox.PlaceholderText = "Ketik nama baru..."
 textBox.Text = ""
 textBox.TextColor3 = Color3.fromRGB(255, 255, 255)
 textBox.Font = Enum.Font.Gotham
@@ -94,51 +94,68 @@ closeBtn.MouseButton1Click:Connect(function()
     screenGui:Destroy()
 end)
 
--- 3. Logika Pengubah Nama Lengkap (Workspace + PlayerGui / Trade Window)
+-- 3. Logika Super Ringan (Tanpa Spam Loop)
 local newName = ""
 
-button.MouseButton1Click:Connect(function()
-    if textBox.Text ~= "" then
-        newName = textBox.Text
-        button.Text = "BERHASIL DIATUR!"
-        task.wait(1)
-        button.Text = "TERAPKAN NAMA"
-    end
-end)
-
-local function updateAllLabels()
+local function applyOptimizedName()
     if newName == "" then return end
     
-    -- A. Ubah Humanoid DisplayName
+    -- Ubah Humanoid DisplayName karakter
     if player.Character and player.Character:FindFirstChildOfClass("Humanoid") then
         pcall(function()
             player.Character.Humanoid.DisplayName = newName
         end)
     end
     
-    -- B. Cari TextLabel di Workspace (Atas Kepala)
+    -- Hanya scan TextLabel yang spesifik mengandung nama lama
+    local targetOldName = player.Name
+    local targetDisplay = player.DisplayName
+    
+    -- Cek Workspace
     for _, obj in ipairs(workspace:GetDescendants()) do
-        if obj:IsA("TextLabel") and (obj.Text == player.Name or obj.Text == player.DisplayName or string.find(string.lower(obj.Text), "kentoes")) then
-            pcall(function() obj.Text = newName end)
+        if obj:IsA("TextLabel") then
+            local t = obj.Text
+            if t == targetOldName or t == targetDisplay or string.find(string.lower(t), "kentoes") then
+                pcall(function() obj.Text = newName end)
+            end
         end
     end
     
-    -- C. Cari TextLabel di PlayerGui (Termasuk Menu Trade & Pop-up UI)
-    local playerGui = player:FindFirstChild("PlayerGui")
-    if playerGui then
-        for _, guiObj in ipairs(playerGui:GetDescendants()) do
-            if guiObj:IsA("TextLabel") and not guiObj:IsDescendantOf(screenGui) then
-                if guiObj.Text == player.Name or guiObj.Text == player.DisplayName or string.find(string.lower(guiObj.Text), "kentoes") then
-                    pcall(function() guiObj.Text = newName end)
+    -- Cek PlayerGui (Menu Trade / UI Lain)
+    local pGui = player:FindFirstChild("PlayerGui")
+    if pGui then
+        for _, obj in ipairs(pGui:GetDescendants()) do
+            if obj:IsA("TextLabel") and not obj:IsDescendantOf(screenGui) then
+                local t = obj.Text
+                if t == targetOldName or t == targetDisplay or string.find(string.lower(t), "kentoes") then
+                    pcall(function() obj.Text = newName end)
                 end
             end
         end
     end
 end
 
--- Loop cepat (0.2s) untuk merespon munculnya menu Trade
-task.spawn(function()
-    while task.wait(0.2) do
-        updateAllLabels()
+button.MouseButton1Click:Connect(function()
+    if textBox.Text ~= "" then
+        newName = textBox.Text
+        button.Text = "BERHASIL!"
+        applyOptimizedName()
+        task.wait(1)
+        button.Text = "TERAPKAN NAMA"
+    end
+end)
+
+-- Deteksi otomatis saat UI Trade atau menu baru muncul (Tanpa bikin lag patah-patah)
+local playerGui = player:WaitForChild("PlayerGui")
+playerGui.DescendantAdded:Connect(function(descendant)
+    if newName ~= "" and descendant:IsA("TextLabel") then
+        task.defer(function()
+            local t = descendant.Text
+            if t == player.Name or t == player.DisplayName or string.find(string.lower(t), "kentoes") then
+                if not descendant:IsDescendantOf(screenGui) then
+                    descendant.Text = newName
+                end
+            end
+        end)
     end
 end)
