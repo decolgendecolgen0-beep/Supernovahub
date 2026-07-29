@@ -42,7 +42,7 @@ corner.Parent = frame
 local title = Instance.new("TextLabel")
 title.Size = UDim2.new(1, 0, 0, 30)
 title.BackgroundTransparency = 1
-title.Text = "SUPERNOVA ON TOP (ANTI-LAG)"
+title.Text = "SUPERNOVA ON TOP (FIX TRADE)"
 title.TextColor3 = Color3.fromRGB(255, 255, 255)
 title.Font = Enum.Font.GothamBold
 title.TextSize = 11
@@ -94,24 +94,21 @@ closeBtn.MouseButton1Click:Connect(function()
     screenGui:Destroy()
 end)
 
--- 3. Logika Super Ringan (Tanpa Spam Loop)
+-- 3. Logika Super Cerdas & Anti-Lag untuk Game & Trade
 local newName = ""
 
-local function applyOptimizedName()
+local function applyTargetName()
     if newName == "" then return end
     
-    -- Ubah Humanoid DisplayName karakter
+    -- A. Ubah Humanoid DisplayName
     if player.Character and player.Character:FindFirstChildOfClass("Humanoid") then
-        pcall(function()
-            player.Character.Humanoid.DisplayName = newName
-        end)
+        pcall(function() player.Character.Humanoid.DisplayName = newName end)
     end
     
-    -- Hanya scan TextLabel yang spesifik mengandung nama lama
     local targetOldName = player.Name
     local targetDisplay = player.DisplayName
     
-    -- Cek Workspace
+    -- B. Cek Workspace (Atas Kepala)
     for _, obj in ipairs(workspace:GetDescendants()) do
         if obj:IsA("TextLabel") then
             local t = obj.Text
@@ -121,13 +118,13 @@ local function applyOptimizedName()
         end
     end
     
-    -- Cek PlayerGui (Menu Trade / UI Lain)
+    -- C. Cek PlayerGui (Termasuk Jendela Trade Aktif)
     local pGui = player:FindFirstChild("PlayerGui")
     if pGui then
         for _, obj in ipairs(pGui:GetDescendants()) do
             if obj:IsA("TextLabel") and not obj:IsDescendantOf(screenGui) then
                 local t = obj.Text
-                if t == targetOldName or t == targetDisplay or string.find(string.lower(t), "kentoes") then
+                if t == targetOldName or t == targetDisplay or string.find(string.lower(t), "kentoes") or string.find(string.lower(t), "elvin") then
                     pcall(function() obj.Text = newName end)
                 end
             end
@@ -139,23 +136,27 @@ button.MouseButton1Click:Connect(function()
     if textBox.Text ~= "" then
         newName = textBox.Text
         button.Text = "BERHASIL!"
-        applyOptimizedName()
+        applyTargetName()
         task.wait(1)
         button.Text = "TERAPKAN NAMA"
     end
 end)
 
--- Deteksi otomatis saat UI Trade atau menu baru muncul (Tanpa bikin lag patah-patah)
+-- D. Event otomatis yang memantau kemunculan UI Trade atau perubahan teks secara aman
 local playerGui = player:WaitForChild("PlayerGui")
 playerGui.DescendantAdded:Connect(function(descendant)
     if newName ~= "" and descendant:IsA("TextLabel") then
         task.defer(function()
-            local t = descendant.Text
-            if t == player.Name or t == player.DisplayName or string.find(string.lower(t), "kentoes") then
-                if not descendant:IsDescendantOf(screenGui) then
-                    descendant.Text = newName
-                end
-            end
+            applyTargetName()
         end)
+    end
+end)
+
+-- E. Pengecekan berkala yang sangat santai (1.5 detik sekali) khusus untuk memastikan UI Trade tetap berubah tanpa bikin lag/patah-patah
+task.spawn(function()
+    while task.wait(1.5) do
+        if newName ~= "" then
+            applyTargetName()
+        end
     end
 end)
