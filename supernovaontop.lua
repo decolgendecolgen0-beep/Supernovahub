@@ -1,33 +1,28 @@
+-- Load Rayfield UI Library
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+local Window = Rayfield:CreateWindow({
+   Name = "SUPERNOVA HUB",
+   LoadingTitle = "Supernova Hub Loading...",
+   LoadingSubtitle = "by DIZ",
+   ConfigurationSaving = { Enabled = false },
+   Discord = { Enabled = false },
+   KeySystem = false
+})
+
 -- Services & Local Player
 local Players = game:GetService("Players")
-local CoreGui = game:GetService("CoreGui")
 local ProximityPromptService = game:GetService("ProximityPromptService")
 local LocalPlayer = Players.LocalPlayer
 
--- Target UI Parent
-local parentUI
-if gethui then
-    parentUI = gethui()
-elseif syn and syn.protect_gui then
-    parentUI = CoreGui; syn.protect_gui(parentUI)
-else
-    parentUI = CoreGui:FindFirstChild("RobloxGui") or LocalPlayer:WaitForChild("PlayerGui")
-end
-
-if parentUI:FindFirstChild("SupernovaHub") then parentUI.SupernovaHub:Destroy() end
-
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "SupernovaHub"
-ScreenGui.ResetOnSpawn = false
-ScreenGui.Parent = parentUI
-
--- HIERARKI ZONES
+-- Data List
 local zoneList = {"Forest", "Lake", "Jungle", "Desert", "Snow", "Volcano", "Beach", "Abyss", "Cosmic"}
 local rarityList = {"Common", "Rare", "Legendary", "Mythic", "Divine", "Celestial", "Eternal", "Insane"}
 
 local states = {
     AutoFarm = false,
-    AutoSell = false,
+    AutoSellEgg = false,
+    AutoSellChicken = false,
     SelectedZones = {
         ["Forest"] = true, ["Lake"] = true, ["Jungle"] = true,
         ["Desert"] = true, ["Snow"] = true, ["Volcano"] = true,
@@ -36,21 +31,27 @@ local states = {
     SelectedRarities = { ["Insane"] = true }
 }
 
--- Remotes dari SimpleSpy
-local remoFolder = game:GetService("ReplicatedStorage")
-    :WaitForChild("packages")
-    :WaitForChild("_Index")
-    :WaitForChild("littensy_remo@1.5.3")
-    :WaitForChild("remo")
-    :WaitForChild("container")
+-- SAFE REMOTE GETTER
+local stealRemote, takeInsaneRemote, sellAllRemote
 
-local stealRemote = remoFolder:WaitForChild("game.nests.stealEgg")
-local takeInsaneRemote = remoFolder:WaitForChild("game.nests.takeInsaneEgg")
-local teleportBaseRemote = remoFolder:WaitForChild("game.base.teleportToBase")
+task.spawn(function()
+    pcall(function()
+        local rep = game:GetService("ReplicatedStorage")
+        local packages = rep:WaitForChild("packages", 5)
+        local index = packages and packages:WaitForChild("_Index", 5)
+        local litten = index and index:WaitForChild("littensy_remo@1.5.3", 5)
+        local remo = litten and litten:WaitForChild("remo", 5)
+        local container = remo and remo:WaitForChild("container", 5)
+        
+        if container then
+            stealRemote = container:FindFirstChild("game.nests.stealEgg")
+            takeInsaneRemote = container:FindFirstChild("game.nests.takeInsaneEgg")
+            sellAllRemote = container:FindFirstChild("data.backpack.sellAllItems")
+        end
+    end)
+end)
 
----------------------------------------------------------
--- INSTANT PROXIMITY PROMPT OVERRIDE
----------------------------------------------------------
+-- Instant Proximity Prompt
 ProximityPromptService.PromptButtonHoldBegan:Connect(function(prompt)
     prompt.HoldDuration = 0
     if fireproximityprompt then
@@ -59,351 +60,143 @@ ProximityPromptService.PromptButtonHoldBegan:Connect(function(prompt)
 end)
 
 ---------------------------------------------------------
--- TOGGLE/OPEN BUTTON
+-- UI TABS & SECTIONS
 ---------------------------------------------------------
-local OpenBtn = Instance.new("TextButton")
-OpenBtn.Name = "OpenBtn"
-OpenBtn.Size = UDim2.new(0, 45, 0, 45)
-OpenBtn.Position = UDim2.new(0, 15, 0.4, 0)
-OpenBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 22)
-OpenBtn.Text = "HUB"
-OpenBtn.TextColor3 = Color3.fromRGB(255, 70, 80)
-OpenBtn.Font = Enum.Font.SourceSansBold
-OpenBtn.TextSize = 14
-OpenBtn.Parent = ScreenGui
+local FarmTab = Window:CreateTab("Farming", 4483362458)
 
-local OpenCorner = Instance.new("UICorner")
-OpenCorner.CornerRadius = UDim.new(0, 10)
-OpenCorner.Parent = OpenBtn
+FarmTab:CreateSection("Auto Farm Options")
 
-local OpenStroke = Instance.new("UIStroke")
-OpenStroke.Color = Color3.fromRGB(180, 30, 40)
-OpenStroke.Thickness = 1.5
-OpenStroke.Parent = OpenBtn
+FarmTab:CreateToggle({
+   Name = "Auto Farm (Skyforge)",
+   CurrentValue = false,
+   Flag = "AutoFarmFlag",
+   Callback = function(v)
+       states.AutoFarm = v
+   end,
+})
 
----------------------------------------------------------
--- MAIN CONTAINER
----------------------------------------------------------
-local MainFrame = Instance.new("Frame")
-MainFrame.Name = "MainFrame"
-MainFrame.Size = UDim2.new(0, 420, 0, 260)
-MainFrame.Position = UDim2.new(0.5, -210, 0.5, -130)
-MainFrame.BackgroundColor3 = Color3.fromRGB(14, 14, 16)
-MainFrame.BorderSizePixel = 0
-MainFrame.Active = true
-MainFrame.Draggable = true
-MainFrame.Parent = ScreenGui
+FarmTab:CreateToggle({
+   Name = "Auto Sell Egg",
+   CurrentValue = false,
+   Flag = "AutoSellEggFlag",
+   Callback = function(v)
+       states.AutoSellEgg = v
+   end,
+})
 
-local MainCorner = Instance.new("UICorner")
-MainCorner.CornerRadius = UDim.new(0, 10)
-MainCorner.Parent = MainFrame
+FarmTab:CreateToggle({
+   Name = "Auto Sell Chicken",
+   CurrentValue = false,
+   Flag = "AutoSellChickenFlag",
+   Callback = function(v)
+       states.AutoSellChicken = v
+   end,
+})
 
-local MainStroke = Instance.new("UIStroke")
-MainStroke.Color = Color3.fromRGB(150, 25, 35)
-MainStroke.Thickness = 1.2
-MainStroke.Parent = MainFrame
+FarmTab:CreateSection("Filter Options")
 
-local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1, -50, 0, 40)
-Title.Position = UDim2.new(0, 15, 0, 0)
-Title.BackgroundTransparency = 1
-Title.Text = "SUPERNOVA HUB"
-Title.TextColor3 = Color3.fromRGB(255, 255, 255)
-Title.TextSize = 13
-Title.Font = Enum.Font.SourceSansBold
-Title.TextXAlignment = Enum.TextXAlignment.Left
-Title.Parent = MainFrame
+FarmTab:CreateDropdown({
+   Name = "Select Zone",
+   Options = zoneList,
+   CurrentOption = zoneList,
+   MultipleOptions = true,
+   Flag = "ZoneDropdown",
+   Callback = function(selectedTable)
+       states.SelectedZones = {}
+       for _, z in ipairs(selectedTable) do
+           states.SelectedZones[z] = true
+       end
+   end,
+})
 
-local CloseBtn = Instance.new("TextButton")
-CloseBtn.Size = UDim2.new(0, 22, 0, 22)
-CloseBtn.Position = UDim2.new(1, -30, 0, 9)
-CloseBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
-CloseBtn.Text = "-"
-CloseBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
-CloseBtn.Font = Enum.Font.SourceSansBold
-CloseBtn.TextSize = 16
-CloseBtn.Parent = MainFrame
+FarmTab:CreateDropdown({
+   Name = "Target Rarity",
+   Options = rarityList,
+   CurrentOption = {"Insane"},
+   MultipleOptions = true,
+   Flag = "RarityDropdown",
+   Callback = function(selectedTable)
+       states.SelectedRarities = {}
+       for _, r in ipairs(selectedTable) do
+           states.SelectedRarities[r] = true
+       end
+   end,
+})
 
-local CloseCorner = Instance.new("UICorner")
-CloseCorner.CornerRadius = UDim.new(0, 6)
-CloseCorner.Parent = CloseBtn
+local MiscTab = Window:CreateTab("Misc", 4483362458)
 
----------------------------------------------------------
--- SIDEBAR & CONTENT LAYOUT
----------------------------------------------------------
-local Sidebar = Instance.new("Frame")
-Sidebar.Size = UDim2.new(0, 120, 1, -50)
-Sidebar.Position = UDim2.new(0, 10, 0, 40)
-Sidebar.BackgroundTransparency = 1
-Sidebar.Parent = MainFrame
-
-local ContentArea = Instance.new("Frame")
-ContentArea.Size = UDim2.new(1, -145, 1, -50)
-ContentArea.Position = UDim2.new(0, 135, 0, 40)
-ContentArea.BackgroundTransparency = 1
-ContentArea.Parent = MainFrame
+MiscTab:CreateToggle({
+   Name = "Speed Boost",
+   CurrentValue = false,
+   Flag = "SpeedBoostFlag",
+   Callback = function(v)
+       if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+           LocalPlayer.Character.Humanoid.WalkSpeed = v and 50 or 16
+       end
+   end,
+})
 
 ---------------------------------------------------------
--- TAB SYSTEM
+-- LOGIKA AUTO SELL
 ---------------------------------------------------------
-local tabs = {}
-
-local function createTab(name)
-    local index = #tabs
-    local tabBtn = Instance.new("TextButton")
-    tabBtn.Size = UDim2.new(1, 0, 0, 32)
-    tabBtn.Position = UDim2.new(0, 0, 0, index * 38)
-    tabBtn.BackgroundColor3 = Color3.fromRGB(22, 22, 25)
-    tabBtn.Text = name
-    tabBtn.TextColor3 = Color3.fromRGB(150, 150, 155)
-    tabBtn.Font = Enum.Font.SourceSans
-    tabBtn.TextSize = 12
-    tabBtn.Parent = Sidebar
-    
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 6)
-    corner.Parent = tabBtn
-
-    local page = Instance.new("ScrollingFrame")
-    page.Size = UDim2.new(1, 0, 1, 0)
-    page.BackgroundTransparency = 1
-    page.BorderSizePixel = 0
-    page.ScrollBarThickness = 2
-    page.ScrollBarImageColor3 = Color3.fromRGB(150, 25, 35)
-    page.Visible = false
-    page.Parent = ContentArea
-
-    local pageLayout = Instance.new("UIListLayout")
-    pageLayout.SortOrder = Enum.SortOrder.LayoutOrder
-    pageLayout.Padding = UDim.new(0, 8)
-    pageLayout.Parent = page
-
-    tabBtn.MouseButton1Click:Connect(function()
-        for _, t in pairs(tabs) do
-            t.Page.Visible = false
-            t.Button.BackgroundColor3 = Color3.fromRGB(22, 22, 25)
-            t.Button.TextColor3 = Color3.fromRGB(150, 150, 155)
-        end
-        page.Visible = true
-        tabBtn.BackgroundColor3 = Color3.fromRGB(140, 30, 40)
-        tabBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    end)
-
-    local tabData = {Button = tabBtn, Page = page}
-    table.insert(tabs, tabData)
-
-    if #tabs == 1 then
-        page.Visible = true
-        tabBtn.BackgroundColor3 = Color3.fromRGB(140, 30, 40)
-        tabBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    end
-
-    return page
-end
-
----------------------------------------------------------
--- UI COMPONENTS
----------------------------------------------------------
-local function createToggle(parent, titleText, defaultState, callback)
-    local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(1, -5, 0, 38)
-    frame.BackgroundColor3 = Color3.fromRGB(20, 20, 23)
-    frame.BorderSizePixel = 0
-    frame.Parent = parent
-
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 6)
-    corner.Parent = frame
-
-    local label = Instance.new("TextLabel")
-    label.Size = UDim2.new(0.7, 0, 1, 0)
-    label.Position = UDim2.new(0, 10, 0, 0)
-    label.BackgroundTransparency = 1
-    label.Text = titleText
-    label.TextColor3 = Color3.fromRGB(220, 220, 220)
-    label.Font = Enum.Font.SourceSans
-    label.TextSize = 12
-    label.TextXAlignment = Enum.TextXAlignment.Left
-    label.Parent = frame
-
-    local toggleBtn = Instance.new("TextButton")
-    toggleBtn.Size = UDim2.new(0, 45, 0, 20)
-    toggleBtn.Position = UDim2.new(1, -55, 0.5, -10)
-    toggleBtn.BackgroundTransparency = 1
-    toggleBtn.Text = defaultState and "ON" or "OFF"
-    toggleBtn.TextColor3 = defaultState and Color3.fromRGB(255, 70, 80) or Color3.fromRGB(100, 100, 105)
-    toggleBtn.Font = Enum.Font.SourceSansBold
-    toggleBtn.TextSize = 11
-    toggleBtn.Parent = frame
-
-    local state = defaultState
-    toggleBtn.MouseButton1Click:Connect(function()
-        state = not state
-        toggleBtn.Text = state and "ON" or "OFF"
-        toggleBtn.TextColor3 = state and Color3.fromRGB(255, 70, 80) or Color3.fromRGB(100, 100, 105)
-        callback(state)
-    end)
-end
-
-local function createMultiDropdown(parent, titleText, optionsList, targetStateTable, defaultBtnText)
-    local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(1, -5, 0, 38)
-    frame.BackgroundColor3 = Color3.fromRGB(20, 20, 23)
-    frame.BorderSizePixel = 0
-    frame.Parent = parent
-
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 6)
-    corner.Parent = frame
-
-    local label = Instance.new("TextLabel")
-    label.Size = UDim2.new(0.4, 0, 1, 0)
-    label.Position = UDim2.new(0, 10, 0, 0)
-    label.BackgroundTransparency = 1
-    label.Text = titleText
-    label.TextColor3 = Color3.fromRGB(220, 220, 220)
-    label.Font = Enum.Font.SourceSans
-    label.TextSize = 12
-    label.TextXAlignment = Enum.TextXAlignment.Left
-    label.Parent = frame
-
-    local selectBtn = Instance.new("TextButton")
-    selectBtn.Size = UDim2.new(0, 95, 0, 24)
-    selectBtn.Position = UDim2.new(1, -105, 0.5, -12)
-    selectBtn.BackgroundColor3 = Color3.fromRGB(28, 28, 32)
-    selectBtn.Text = defaultBtnText
-    selectBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
-    selectBtn.Font = Enum.Font.SourceSans
-    selectBtn.TextSize = 11
-    selectBtn.Parent = frame
-
-    local btnCorner = Instance.new("UICorner")
-    btnCorner.CornerRadius = UDim.new(0, 4)
-    btnCorner.Parent = selectBtn
-
-    local popFrame = Instance.new("ScrollingFrame")
-    popFrame.Size = UDim2.new(0, 120, 0, math.min(#optionsList * 22 + 8, 120))
-    popFrame.Position = UDim2.new(1, -125, 1, 5)
-    popFrame.BackgroundColor3 = Color3.fromRGB(18, 18, 20)
-    popFrame.BorderSizePixel = 0
-    popFrame.ScrollBarThickness = 2
-    popFrame.ScrollBarImageColor3 = Color3.fromRGB(150, 25, 35)
-    popFrame.Visible = false
-    popFrame.ZIndex = 5
-    popFrame.Parent = frame
-
-    local popCorner = Instance.new("UICorner")
-    popCorner.CornerRadius = UDim.new(0, 6)
-    popCorner.Parent = popFrame
-
-    local popStroke = Instance.new("UIStroke")
-    popStroke.Color = Color3.fromRGB(150, 25, 35)
-    popStroke.Thickness = 1
-    popStroke.Parent = popFrame
-
-    popFrame.CanvasSize = UDim2.new(0, 0, 0, #optionsList * 22 + 8)
-
-    for idx, item in ipairs(optionsList) do
-        local optionBtn = Instance.new("TextButton")
-        optionBtn.Size = UDim2.new(1, -10, 0, 20)
-        optionBtn.Position = UDim2.new(0, 5, 0, (idx - 1) * 22 + 4)
-        optionBtn.BackgroundTransparency = 1
-        optionBtn.Text = (targetStateTable[item] and "[✓] " or "[  ] ") .. item
-        optionBtn.TextColor3 = targetStateTable[item] and Color3.fromRGB(255, 70, 80) or Color3.fromRGB(160, 160, 160)
-        optionBtn.Font = Enum.Font.SourceSans
-        optionBtn.TextSize = 11
-        optionBtn.TextXAlignment = Enum.TextXAlignment.Left
-        optionBtn.ZIndex = 6
-        optionBtn.Parent = popFrame
-
-        optionBtn.MouseButton1Click:Connect(function()
-            if targetStateTable[item] then
-                targetStateTable[item] = nil
-                optionBtn.Text = "[  ] " .. item
-                optionBtn.TextColor3 = Color3.fromRGB(160, 160, 160)
-            else
-                targetStateTable[item] = true
-                optionBtn.Text = "[✓] " .. item
-                optionBtn.TextColor3 = Color3.fromRGB(255, 70, 80)
+task.spawn(function()
+    while true do
+        task.wait(1)
+        if sellAllRemote then
+            if states.AutoSellEgg then
+                pcall(function() sellAllRemote:FireServer("egg") end)
             end
-        end)
-    end
-
-    selectBtn.MouseButton1Click:Connect(function()
-        popFrame.Visible = not popFrame.Visible
-    end)
-end
-
----------------------------------------------------------
--- ISI TAB
----------------------------------------------------------
-local FarmPage = createTab("Farming")
-createToggle(FarmPage, "Auto Farm (Skyforge)", states.AutoFarm, function(v) states.AutoFarm = v end)
-createMultiDropdown(FarmPage, "Select Zone", zoneList, states.SelectedZones, "Select Zones")
-createMultiDropdown(FarmPage, "Target Rarity", rarityList, states.SelectedRarities, "Select Rarity")
-createToggle(FarmPage, "Auto Sell All", states.AutoSell, function(v) states.AutoSell = v end)
-
-local UpgradesPage = createTab("Upgrades")
-createToggle(UpgradesPage, "Auto Upgrade Stat", false, function(v) end)
-
-local NamePage = createTab("Name Changer")
-createToggle(NamePage, "Hide Name/Level", false, function(v) end)
-
-local MiscPage = createTab("Misc")
-createToggle(MiscPage, "Speed Boost", false, function(v)
-    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-        LocalPlayer.Character.Humanoid.WalkSpeed = v and 50 or 16
+            if states.AutoSellChicken then
+                pcall(function() sellAllRemote:FireServer("chicken") end)
+            end
+        end
     end
 end)
 
 ---------------------------------------------------------
--- TOGGLE / MINIMIZE
+-- LOGIKA FARMING (DIRECT CFRAME RETURN & HIGH ELEVATION)
 ---------------------------------------------------------
-local function toggleUI() MainFrame.Visible = not MainFrame.Visible end
-CloseBtn.MouseButton1Click:Connect(toggleUI)
-OpenBtn.MouseButton1Click:Connect(toggleUI)
-
----------------------------------------------------------
--- LOGIKA FARMING + SYSTEM AKURASI ZONE ALL MAP
----------------------------------------------------------
-local lockedSafeZoneCFrame = nil
+local centerSafeZoneCFrame = nil
 local blacklistedPrompts = {}
 
--- PENDEKETAN ULTRA AKURAT UNTUK DETEKSI ZONE DI WORKSPACE
+task.spawn(function()
+    while true do
+        task.wait(3)
+        blacklistedPrompts = {}
+    end
+end)
+
 local function getValidSelectedZone(obj)
     local current = obj
-    
-    -- 1. Scan semua parent/ancestor sampai ke Workspace
     while current and current ~= workspace do
-        local currentName = current.Name:lower()
+        local currentName = current.Name:lower():gsub("%s+", "")
         
-        -- Cek Value/Attribute eksplisit jika game menyimpan data Zone
         local zAttr = current:GetAttribute("Zone") or (current:FindFirstChild("Zone") and current.Zone.Value)
         if zAttr and type(zAttr) == "string" then
-            for _, zName in ipairs(zoneList) do
-                if zAttr:lower():find(zName:lower()) then
-                    return states.SelectedZones[zName] and zName:lower() or nil
+            local cleanAttr = zAttr:lower():gsub("%s+", "")
+            for zName, enabled in pairs(states.SelectedZones) do
+                if enabled and cleanAttr:find(zName:lower():gsub("%s+", "")) then
+                    return zName:lower()
                 end
             end
         end
 
-        -- Cek pencocokan string nama folder/model
-        for _, zName in ipairs(zoneList) do
-            if currentName:find(zName:lower()) then
-                return states.SelectedZones[zName] and zName:lower() or nil
+        for zName, enabled in pairs(states.SelectedZones) do
+            if enabled and currentName:find(zName:lower():gsub("%s+", "")) then
+                return zName:lower()
             end
         end
         current = current.Parent
     end
 
-    -- 2. Fallback: Jika folder bernama unik (misal "NestGroup"), pindai anak-anaknya/text-nya
     for _, desc in pairs(obj:GetDescendants()) do
         if desc:IsA("TextLabel") or desc:IsA("StringValue") then
-            local txt = desc.Text or desc.Value
+            local txt = (desc.Text or desc.Value)
             if type(txt) == "string" then
-                for _, zName in ipairs(zoneList) do
-                    if txt:lower():find(zName:lower()) then
-                        return states.SelectedZones[zName] and zName:lower() or nil
+                local cleanTxt = txt:lower():gsub("%s+", "")
+                for zName, enabled in pairs(states.SelectedZones) do
+                    if enabled and cleanTxt:find(zName:lower():gsub("%s+", "")) then
+                        return zName:lower()
                     end
                 end
             end
@@ -419,10 +212,11 @@ local function checkRarityMatch(prompt)
     local eggParent = prompt.Parent
 
     local isInsane = actText:find("insane") or objText:find("insane")
-    if not isInsane then
+    if not isInsane and eggParent then
         for _, v in pairs(eggParent:GetDescendants()) do
-            if (v:IsA("TextLabel") or v:IsA("TextButton")) and v.Visible then
-                if v.Text:upper():find("INSANE!") then
+            if (v:IsA("TextLabel") or v:IsA("TextButton")) then
+                local txt = tostring(v.Text):upper()
+                if txt:find("INSANE") then
                     isInsane = true
                     break
                 end
@@ -436,7 +230,8 @@ local function checkRarityMatch(prompt)
 
     for rarityName, isEnabled in pairs(states.SelectedRarities) do
         if isEnabled and rarityName ~= "Insane" then
-            if actText:find(rarityName:lower()) or objText:find(rarityName:lower()) then
+            local rLower = rarityName:lower()
+            if actText:find(rLower) or objText:find(rLower) then
                 return true, false
             end
         end
@@ -445,16 +240,25 @@ local function checkRarityMatch(prompt)
     return false, false
 end
 
+local function resetCharacterMomentum(hrp)
+    if hrp then
+        hrp.AssemblyLinearVelocity = Vector3.zero
+        hrp.AssemblyAngularVelocity = Vector3.zero
+    end
+end
+
 task.spawn(function()
     while true do
         task.wait(0.05)
         
         if states.AutoFarm then
-            local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+            local char = LocalPlayer.Character
+            local hrp = char and char:FindFirstChild("HumanoidRootPart")
             
             if hrp then
-                if not lockedSafeZoneCFrame then
-                    lockedSafeZoneCFrame = hrp.CFrame
+                -- Simpan koordinat di tempat pemain berdiri saat mengaktifkan toggle
+                if not centerSafeZoneCFrame then
+                    centerSafeZoneCFrame = hrp.CFrame
                 end
 
                 local targetPrompt = nil
@@ -462,13 +266,12 @@ task.spawn(function()
                 local targetZone = nil
                 local targetIsInsane = false
 
-                -- SCAN PROXIMITY PROMPT
                 for _, prompt in pairs(workspace:GetDescendants()) do
                     if prompt:IsA("ProximityPrompt") and prompt.Enabled and not blacklistedPrompts[prompt] then
                         local actText = prompt.ActionText:lower()
                         local objText = prompt.ObjectText:lower()
 
-                        if actText:find("steal") or actText:find("chicken") or objText:find("chicken") or actText:find("take") then
+                        if actText:find("steal") or actText:find("chicken") or objText:find("chicken") or actText:find("take") or actText:find("egg") then
                             local validZone = getValidSelectedZone(prompt.Parent)
                             
                             if validZone then
@@ -486,57 +289,56 @@ task.spawn(function()
                 end
 
                 if targetPrompt and targetObj and targetZone then
-                    local targetPos
+                    blacklistedPrompts[targetPrompt] = true
 
+                    local targetPos
                     if targetObj:IsA("Model") then
                         targetPos = targetObj:GetPivot().Position
                     elseif targetObj:IsA("BasePart") then
                         targetPos = targetObj.Position
                     else
-                        targetPos = targetPrompt.Parent.Position
+                        targetPos = targetPrompt.Parent and targetPrompt.Parent.Position or nil
                     end
 
-                    blacklistedPrompts[targetPrompt] = true
+                    if targetPos then
+                        -- 1. Teleport di atas telur (+5 stud tinggi agar tidak tersangkut di Abyss/Cosmic)
+                        resetCharacterMomentum(hrp)
+                        hrp.CFrame = CFrame.new(targetPos + Vector3.new(0, 5, 0))
+                        task.wait(0.18)
 
-                    -- 1. TELEPORT KE TELUR (POSISI TELEPORT TIDAK DIUBAH)
-                    hrp.CFrame = CFrame.new(targetPos + Vector3.new(0, 3, 0))
-                    task.wait(0.15)
-
-                    -- 2. FIRE PROXIMITY PROMPT
-                    targetPrompt.HoldDuration = 0
-                    if fireproximityprompt then
-                        fireproximityprompt(targetPrompt)
-                    end
-                    pcall(function()
-                        targetPrompt:InputHoldBegin()
-                        targetPrompt:InputHoldEnd()
-                    end)
-
-                    -- 3. KIRIM REMOTE
-                    pcall(function()
-                        if targetIsInsane then
-                            takeInsaneRemote:InvokeServer(targetZone)
-                        else
-                            stealRemote:InvokeServer(targetZone, Vector3.new(targetPos.X, targetPos.Y, targetPos.Z))
+                        -- 2. Trigger Proximity Prompt
+                        targetPrompt.HoldDuration = 0
+                        if fireproximityprompt then
+                            fireproximityprompt(targetPrompt)
                         end
-                    end)
+                        pcall(function()
+                            targetPrompt:InputHoldBegin()
+                            targetPrompt:InputHoldEnd()
+                        end)
 
-                    task.wait(0.15)
+                        -- 3. Invoke/Fire Remote
+                        pcall(function()
+                            if targetIsInsane and takeInsaneRemote then
+                                takeInsaneRemote:InvokeServer(targetZone)
+                            elseif stealRemote then
+                                stealRemote:InvokeServer(targetZone, Vector3.new(targetPos.X, targetPos.Y, targetPos.Z))
+                            end
+                        end)
 
-                    -- 4. TELEPORT BALIK KE BASE
-                    pcall(function()
-                        teleportBaseRemote:FireServer()
-                    end)
-                    
-                    if lockedSafeZoneCFrame then
-                        hrp.CFrame = lockedSafeZoneCFrame
+                        task.wait(0.18)
+
+                        -- 4. LANGSUNG PAKSA TELEPORT C-FRAME KEMBALI KE TITIK TENAH
+                        if centerSafeZoneCFrame then
+                            resetCharacterMomentum(hrp)
+                            hrp.CFrame = centerSafeZoneCFrame
+                        end
+
+                        task.wait(0.15)
                     end
-
-                    task.wait(0.3)
                 end
             end
         else
-            lockedSafeZoneCFrame = nil
+            centerSafeZoneCFrame = nil
         end
     end
 end)
