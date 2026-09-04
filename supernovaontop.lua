@@ -23,6 +23,8 @@ local states = {
     AutoFarm = false,
     AutoSellEgg = false,
     AutoSellChicken = false,
+    AutoClaimEggs = false,
+    EquipBest = false,
     SelectedZones = {
         ["Forest"] = true, ["Lake"] = true, ["Jungle"] = true,
         ["Desert"] = true, ["Snow"] = true, ["Volcano"] = true,
@@ -32,7 +34,7 @@ local states = {
 }
 
 -- SAFE REMOTE GETTER
-local stealRemote, takeInsaneRemote, sellAllRemote
+local stealRemote, takeInsaneRemote, sellAllRemote, claimAllEggsRemote, equipBestRemote
 
 task.spawn(function()
     pcall(function()
@@ -47,6 +49,8 @@ task.spawn(function()
             stealRemote = container:FindFirstChild("game.nests.stealEgg")
             takeInsaneRemote = container:FindFirstChild("game.nests.takeInsaneEgg")
             sellAllRemote = container:FindFirstChild("data.backpack.sellAllItems")
+            claimAllEggsRemote = container:FindFirstChild("data.base.claimAllEggs")
+            equipBestRemote = container:FindFirstChild("data.base.equipBestChickens")
         end
     end)
 end)
@@ -125,6 +129,28 @@ FarmTab:CreateDropdown({
 
 local MiscTab = Window:CreateTab("Misc", 4483362458)
 
+MiscTab:CreateSection("Base Utilities")
+
+MiscTab:CreateToggle({
+   Name = "Auto Claim All Eggs",
+   CurrentValue = false,
+   Flag = "AutoClaimEggsFlag",
+   Callback = function(v)
+       states.AutoClaimEggs = v
+   end,
+})
+
+MiscTab:CreateToggle({
+   Name = "Equip Best Chickens",
+   CurrentValue = false,
+   Flag = "EquipBestFlag",
+   Callback = function(v)
+       states.EquipBest = v
+   end,
+})
+
+MiscTab:CreateSection("Player Utilities")
+
 MiscTab:CreateToggle({
    Name = "Speed Boost",
    CurrentValue = false,
@@ -137,7 +163,7 @@ MiscTab:CreateToggle({
 })
 
 ---------------------------------------------------------
--- LOGIKA AUTO SELL
+-- LOGIKA AUTO SELL, AUTO CLAIM, & EQUIP BEST
 ---------------------------------------------------------
 task.spawn(function()
     while true do
@@ -150,11 +176,17 @@ task.spawn(function()
                 pcall(function() sellAllRemote:FireServer("chicken") end)
             end
         end
+        if states.AutoClaimEggs and claimAllEggsRemote then
+            pcall(function() claimAllEggsRemote:FireServer() end)
+        end
+        if states.EquipBest and equipBestRemote then
+            pcall(function() equipBestRemote:FireServer() end)
+        end
     end
 end)
 
 ---------------------------------------------------------
--- LOGIKA FARMING (DIRECT CFRAME RETURN & HIGH ELEVATION)
+-- LOGIKA FARMING
 ---------------------------------------------------------
 local centerSafeZoneCFrame = nil
 local blacklistedPrompts = {}
@@ -256,7 +288,6 @@ task.spawn(function()
             local hrp = char and char:FindFirstChild("HumanoidRootPart")
             
             if hrp then
-                -- Simpan koordinat di tempat pemain berdiri saat mengaktifkan toggle
                 if not centerSafeZoneCFrame then
                     centerSafeZoneCFrame = hrp.CFrame
                 end
@@ -301,12 +332,10 @@ task.spawn(function()
                     end
 
                     if targetPos then
-                        -- 1. Teleport di atas telur (+5 stud tinggi agar tidak tersangkut di Abyss/Cosmic)
                         resetCharacterMomentum(hrp)
                         hrp.CFrame = CFrame.new(targetPos + Vector3.new(0, 5, 0))
                         task.wait(0.18)
 
-                        -- 2. Trigger Proximity Prompt
                         targetPrompt.HoldDuration = 0
                         if fireproximityprompt then
                             fireproximityprompt(targetPrompt)
@@ -316,7 +345,6 @@ task.spawn(function()
                             targetPrompt:InputHoldEnd()
                         end)
 
-                        -- 3. Invoke/Fire Remote
                         pcall(function()
                             if targetIsInsane and takeInsaneRemote then
                                 takeInsaneRemote:InvokeServer(targetZone)
@@ -327,7 +355,6 @@ task.spawn(function()
 
                         task.wait(0.18)
 
-                        -- 4. LANGSUNG PAKSA TELEPORT C-FRAME KEMBALI KE TITIK TENAH
                         if centerSafeZoneCFrame then
                             resetCharacterMomentum(hrp)
                             hrp.CFrame = centerSafeZoneCFrame
