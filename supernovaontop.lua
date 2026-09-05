@@ -16,7 +16,7 @@ local ProximityPromptService = game:GetService("ProximityPromptService")
 local LocalPlayer = Players.LocalPlayer
 
 -- Data List
-local zoneList = {"Forest", "Lake", "Jungle", "Desert", "Snow", "Volcano", "Beach", "Abyss", "Cosmic"}
+local zoneList = {"Forest", "Lake", "Jungle", "Desert", "Snow", "Volcano", "Beach", "Abyss", "Cosmic", "Crystal"}
 local rarityList = {"Common", "Rare", "Legendary", "Mythic", "Divine", "Celestial", "Eternal", "Insane"}
 
 local states = {
@@ -28,7 +28,8 @@ local states = {
     SelectedZones = {
         ["Forest"] = true, ["Lake"] = true, ["Jungle"] = true,
         ["Desert"] = true, ["Snow"] = true, ["Volcano"] = true,
-        ["Beach"] = true, ["Abyss"] = true, ["Cosmic"] = true
+        ["Beach"] = true, ["Abyss"] = true, ["Cosmic"] = true,
+        ["Crystal"] = true
     },
     SelectedRarities = { ["Insane"] = true }
 }
@@ -55,7 +56,7 @@ task.spawn(function()
     end)
 end)
 
--- Instant Proximity Prompt
+-- Instant Proximity Prompt Override
 ProximityPromptService.PromptButtonHoldBegan:Connect(function(prompt)
     prompt.HoldDuration = 0
     if fireproximityprompt then
@@ -186,41 +187,66 @@ task.spawn(function()
 end)
 
 ---------------------------------------------------------
--- LOGIKA FARMING
+-- LOGIKA FARMING (ENHANCED STRICTOR ZONE & PICKUP LOGIC)
 ---------------------------------------------------------
 local centerSafeZoneCFrame = nil
 local blacklistedPrompts = {}
 
 task.spawn(function()
     while true do
-        task.wait(3)
+        task.wait(2.5)
         blacklistedPrompts = {}
     end
 end)
 
+-- UN-EQUIP / MELEPAS TELUR YANG SEDANG DIPEGANG
+local function dropCurrentEgg()
+    local char = LocalPlayer.Character
+    if not char then return end
+
+    -- 1. Melepas Tool jika telur berupa Tool
+    local humanoid = char:FindFirstChildOfClass("Humanoid")
+    if humanoid then
+        humanoid:UnequipTools()
+    end
+
+    -- 2. Memutus joint/weld jika telur menempel pada fisik karakter
+    for _, child in ipairs(char:GetChildren()) do
+        if child:IsA("Tool") or child.Name:lower():find("egg") or child.Name:lower():find("holding") then
+            child.Parent = LocalPlayer:FindFirstChildOfClass("Backpack") or workspace
+        end
+    end
+end
+
+-- PENGECEKAN ZONE SECARA KETAT (STRICT DETECTION)
 local function getValidSelectedZone(obj)
     local current = obj
+    
+    -- Memeriksa hirarki tempat telur berada
     while current and current ~= workspace do
         local currentName = current.Name:lower():gsub("%s+", "")
         
+        -- Cek Atribut / Child Value "Zone"
         local zAttr = current:GetAttribute("Zone") or (current:FindFirstChild("Zone") and current.Zone.Value)
         if zAttr and type(zAttr) == "string" then
             local cleanAttr = zAttr:lower():gsub("%s+", "")
             for zName, enabled in pairs(states.SelectedZones) do
                 if enabled and cleanAttr:find(zName:lower():gsub("%s+", "")) then
-                    return zName:lower()
+                    return zName
                 end
             end
         end
 
+        -- Cek Nama Model / Parent
         for zName, enabled in pairs(states.SelectedZones) do
             if enabled and currentName:find(zName:lower():gsub("%s+", "")) then
-                return zName:lower()
+                return zName
             end
         end
         current = current.Parent
     end
 
+    -- Memeriksa deskriptor teks di dalam objek
     for _, desc in pairs(obj:GetDescendants()) do
         if desc:IsA("TextLabel") or desc:IsA("StringValue") then
             local txt = (desc.Text or desc.Value)
@@ -228,13 +254,14 @@ local function getValidSelectedZone(obj)
                 local cleanTxt = txt:lower():gsub("%s+", "")
                 for zName, enabled in pairs(states.SelectedZones) do
                     if enabled and cleanTxt:find(zName:lower():gsub("%s+", "")) then
-                        return zName:lower()
+                        return zName
                     end
                 end
             end
         end
     end
 
+    -- PENTING: Fallback tanpa izin DIBUANG total agar tidak mengambil zone yang tidak dipilih!
     return nil
 end
 
@@ -243,21 +270,25 @@ local function checkRarityMatch(prompt)
     local objText = prompt.ObjectText:lower()
     local eggParent = prompt.Parent
 
-    local isInsane = actText:find("insane") or objText:find("insane")
-    if not isInsane and eggParent then
+    local isInsaneText = actText:find("insane") or objText:find("insane")
+    if not isInsaneText and eggParent then
         for _, v in pairs(eggParent:GetDescendants()) do
             if (v:IsA("TextLabel") or v:IsA("TextButton")) then
                 local txt = tostring(v.Text):upper()
                 if txt:find("INSANE") then
-                    isInsane = true
+                    isInsaneText = true
                     break
                 end
             end
         end
     end
 
-    if isInsane then
-        return states.SelectedRarities["Insane"] == true, true
+    if isInsaneText then
+        if states.SelectedRarities["Insane"] then
+            return true, true
+        else
+            return false, false
+        end
     end
 
     for rarityName, isEnabled in pairs(states.SelectedRarities) do
@@ -305,6 +336,7 @@ task.spawn(function()
                         if actText:find("steal") or actText:find("chicken") or objText:find("chicken") or actText:find("take") or actText:find("egg") then
                             local validZone = getValidSelectedZone(prompt.Parent)
                             
+                            -- Hanya memproses jika zone benar-benar VALID & DIPILIH
                             if validZone then
                                 local isMatch, isInsane = checkRarityMatch(prompt)
                                 if isMatch then
@@ -332,10 +364,14 @@ task.spawn(function()
                     end
 
                     if targetPos then
+                        -- 1. Teleport tepat di lokasi telur (ketinggian disesuaikan)
                         resetCharacterMomentum(hrp)
-                        hrp.CFrame = CFrame.new(targetPos + Vector3.new(0, 5, 0))
+                        hrp.CFrame = CFrame.new(targetPos + Vector3.new(0, 2.5, 0))
+                        
+                        -- Penundaan kecil agar physics & server menyadari keberadaan karakter
                         task.wait(0.18)
 
+                        -- 2. Interaksi Proximity Prompt & Trigger Remote
                         targetPrompt.HoldDuration = 0
                         if fireproximityprompt then
                             fireproximityprompt(targetPrompt)
@@ -345,22 +381,29 @@ task.spawn(function()
                             targetPrompt:InputHoldEnd()
                         end)
 
+                        local zoneParam = tostring(targetZone):lower()
                         pcall(function()
                             if targetIsInsane and takeInsaneRemote then
-                                takeInsaneRemote:InvokeServer(targetZone)
+                                takeInsaneRemote:InvokeServer(zoneParam)
                             elseif stealRemote then
-                                stealRemote:InvokeServer(targetZone, Vector3.new(targetPos.X, targetPos.Y, targetPos.Z))
+                                stealRemote:InvokeServer(zoneParam, Vector3.new(targetPos.X, targetPos.Y, targetPos.Z))
                             end
                         end)
 
-                        task.wait(0.18)
+                        -- Waktu jeda agar animasi & pendaftaran item dari server selesai
+                        task.wait(0.25)
 
+                        -- 3. Kembali ke Base / Safe Zone
                         if centerSafeZoneCFrame then
                             resetCharacterMomentum(hrp)
                             hrp.CFrame = centerSafeZoneCFrame
                         end
 
-                        task.wait(0.15)
+                        -- 4. Melepas/Menjatuhkan telur yang dipegang agar bisa TP ke telur berikutnya
+                        task.wait(0.1)
+                        dropCurrentEgg()
+
+                        task.wait(0.2)
                     end
                 end
             end
